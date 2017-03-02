@@ -18,6 +18,11 @@ medications, clinician notes, and so on. For more information please visit the [
 The project implements a PostgreSQL database that is ran on a virtual machine (VM). The VM handles
 all provisioning, including installation and database import.
 
+The Postgres database can be accessed remotely on Python leveraging the `psycopg2` Python package.
+Likewise, it can be accessed through Postgres' psql terminal by specifying the localhost and port of
+the VM database:  
+`psql -h localhost -p 2345 mimic mimic`
+
 For more information or installation of the VM locally, please visit the project repo: [MIMIC-III VM]  
 [MIMIC-III VM]: https://github.com/nsh87/mimic-iii-vm
 

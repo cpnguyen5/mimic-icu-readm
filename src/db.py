@@ -60,14 +60,15 @@ def feat_icustay():
     return df_icu
 
 
-def feat_trav(left_df):
+def feat_trav():
     """
     Function extracts the count of traversals for all wards and only ICU wards for each patient's hospital admission as
     features.
 
-    :param left_df: pandas DataFrame for left outer join
     :return: tuple of (merged pandas DataFrame, main pandas DataFrame)
     """
+    left_df = feat_icustay()
+
     q_mult = """SELECT subject_id, hadm_id, icustay_id, eventtype,
     prev_careunit, curr_careunit, prev_wardid, curr_wardid, intime, outtime, los
     FROM transfers;"""
@@ -105,15 +106,15 @@ def feat_trav(left_df):
     return (df_icu2, df_mult_readm_icu)
 
 
-def feat_iculos(left_df, main_df):
+def feat_iculos():
     """
     Function extracts the average length of stay for each patient's ICU stay as a feature, extracting the information
     using the main DataFrame (pre-grouped).
 
-    :param left_df: pandas DataFrame for left outer join
-    :param main_df: main pandas DataFrame (original)
     :return: merged pandas DataFrame
     """
+    left_df, main_df = feat_trav()
+
     avgiculos = main_df.groupby(['subjectid', 'hadmid'])['los'].mean()
     df_avgiculos = avgiculos.to_frame(name='avg_iculos').reset_index()
 
@@ -124,6 +125,4 @@ def feat_iculos(left_df, main_df):
 
 
 if __name__ == "__main__":
-    df_icu_readm = feat_icustay()
-    df_icu_readm, df_main = feat_trav(df_icu_readm)
-    df_icu_readm = feat_iculos(df_icu_readm, df_main)
+    print feat_iculos()

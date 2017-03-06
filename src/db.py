@@ -5,13 +5,9 @@ from psycopg2 import extras
 def cursor_connect(cursor_factory=None):
     """
     Connects to the DB and returns the connection and cursor, ready to use.
-    Parameters
-    ----------
-    cursor_factory : psycopg2.extras
-    Returns
-    -------
-    (psycopg2.extensions.connection, psycopg2.extensions.cursor)
-        A tuple of (psycopg2 connection, psycopg2 cursor).
+    
+    :param cursor_factory: psycopg2.extras
+    :return: tuple of (psycopg2 connection, psycopg2 cursor)
     """
     #DB connection
     conn = psycopg2.connect(dbname="mimic", user="mimic", host="localhost", port="2345",
@@ -27,14 +23,9 @@ def exec_query(query, curs_dict=True):
     """
     Execute query and returns the SQL output.
 
-    Parameters
-    ----------
-    query: string containing SQL SELECT command
-    curs_dict: dict cursor factory (output is dict)
-
-    Returns
-    -------
-    rows: list of rows/records (SQL output)
+    :param query: string containing SQL SELECT command
+    :param curs_dict: dict cursor factory (output is dict)
+    :return: list of rows/records (SQL output)
     """
     if curs_dict == True:
         conn, cur = cursor_connect(psycopg2.extras.DictCursor)

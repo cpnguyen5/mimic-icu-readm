@@ -23,12 +23,34 @@ def cursor_connect(cursor_factory=None):
     return conn, cur
 
 
-if __name__ == "__main__":
-    query = """SELECT subject_id, hadm_id FROM admissions LIMIT 10;"""
-    # conn, cur = cursor_connect()
-    conn, cur = cursor_connect(psycopg2.extras.DictCursor)  # access retrieved records as Python dict using keys
+def exec_query(query, curs_dict=True):
+    """
+    Execute query and returns the SQL output.
+
+    Parameters
+    ----------
+    query: string containing SQL SELECT command
+    curs_dict: dict cursor factory (output is dict)
+
+    Returns
+    -------
+    rows: list of rows/records (SQL output)
+    """
+    if curs_dict == True:
+        conn, cur = cursor_connect(psycopg2.extras.DictCursor)
+    else:
+        conn, cur = cursor_connect()
     cur.execute(query)
     rows = cur.fetchall()
-    # print rows[0]['subject_id']
-    for row in rows:
-        print row
+    return rows
+
+
+if __name__ == "__main__":
+    # query = """SELECT subject_id, hadm_id FROM admissions LIMIT 10;"""
+    # # conn, cur = cursor_connect()
+    # conn, cur = cursor_connect(psycopg2.extras.DictCursor)  # access retrieved records as Python dict using keys
+    # cur.execute(query)
+    # rows = cur.fetchall()
+    # # print rows[0]['subject_id']
+    # for row in rows:
+    #     print row

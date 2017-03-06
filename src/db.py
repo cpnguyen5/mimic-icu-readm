@@ -1,11 +1,13 @@
 import psycopg2
 from psycopg2 import extras
+import numpy as np
+import pandas as pd
 
 
 def cursor_connect(cursor_factory=None):
     """
     Connects to the DB and returns the connection and cursor, ready to use.
-    
+
     :param cursor_factory: psycopg2.extras
     :return: tuple of (psycopg2 connection, psycopg2 cursor)
     """
@@ -36,12 +38,92 @@ def exec_query(query, curs_dict=True):
     return rows
 
 
+def feat_icustay():
+    """
+    Function extracts the counts of icustays and ICU readmissions for each patient's hospital admission as features.
+
+    :return: pandas DataFrame with 2 extracted features (n_icustays, n_readm)
+    """
+    # query
+    q_icupat = """SELECT * FROM
+        (SELECT subject_id, COUNT(icustay_id) AS n_icustays
+        FROM icustays
+        GROUP BY subject_id) AS sub_q
+    WHERE n_icustays > 1;"""
+
+    # Query output
+    icu_stay = exec_query(q_icupat, False)
+    df_icustay = pd.DataFrame(icu_stay, columns=['subjectid', 'n_icustays'])
+
+    n_readm = pd.Series(df_icustay.n_icustays - 1, name='n_readm')
+    df_icu = pd.concat([df_icustay, n_readm], axis=1)
+    return df_icu
+
+
+def feat_trav(left_df):
+    """
+    Function extracts the count of traversals for all wards and only ICU wards for each patient's hospital admission as
+    features.
+
+    :param left_df: pandas DataFrame for left outer join
+    :return: tuple of (merged pandas DataFrame, main pandas DataFrame)
+    """
+    q_mult = """SELECT subject_id, hadm_id, icustay_id, eventtype,
+    prev_careunit, curr_careunit, prev_wardid, curr_wardid, intime, outtime, los
+    FROM transfers;"""
+    mult_trav = exec_query(q_mult, False)
+    mult_col = ['subjectid', 'hadmid', 'icustayid', 'eventtype', 'prev_cu', 'curr_cu',
+                'prev_wardid', 'curr_wardid', 'intime', 'outtime', 'los']
+    df_mult = pd.DataFrame(mult_trav, columns=mult_col)
+    df_mult.replace(to_replace='', value=np.nan, inplace=True, regex=True)
+
+    # filter for ICU patients with readmissions
+    filter_preadm = list(left_df.subjectid)
+    df_mult_readm = df_mult[df_mult.subjectid.isin(filter_preadm)] # main DF
+
+    # filter for exclusion of neonate patients
+    df_mult_readm = df_mult_readm[df_mult_readm['prev_cu'] != 'NWARD']
+    df_mult_readm = df_mult_readm[df_mult_readm['prev_cu'] != 'NICU']
+    df_mult_readm = df_mult_readm[df_mult_readm['curr_cu'] != 'NWARD']
+    df_mult_readm = df_mult_readm[df_mult_readm['curr_cu'] != 'NICU']
+
+    # extract feature: n_trav
+    df_mult_readm_grp = df_mult_readm.groupby(['subjectid', 'hadmid']).size()
+    df_mult_readm_grp = df_mult_readm_grp.to_frame(name='n_trav').reset_index()
+
+    # join DF on subjectid to add n_icustays col
+    df_icu1 = pd.merge(df_mult_readm_grp, left_df, on='subjectid',
+                       how='left')
+
+    # extract feature: n_icutrav
+    df_mult_readm_icu = df_mult_readm[df_mult_readm.icustayid.notnull() == True]
+    df_mult_readm_hadm = df_mult_readm_icu.groupby(['subjectid', 'hadmid']).size().to_frame('n_icutrav').reset_index()
+
+    # join DF  on subjectid to add n_readm col
+    df_icu2 = pd.merge(df_icu1, df_mult_readm_hadm.loc[:, ['hadmid', 'n_icutrav']],
+                       on='hadmid', how='inner')
+    return (df_icu2, df_mult_readm_icu)
+
+
+def feat_iculos(left_df, main_df):
+    """
+    Function extracts the average length of stay for each patient's ICU stay as a feature, extracting the information
+    using the main DataFrame (pre-grouped).
+
+    :param left_df: pandas DataFrame for left outer join
+    :param main_df: main pandas DataFrame (original)
+    :return: merged pandas DataFrame
+    """
+    avgiculos = main_df.groupby(['subjectid', 'hadmid'])['los'].mean()
+    df_avgiculos = avgiculos.to_frame(name='avg_iculos').reset_index()
+
+    # Merge
+    df_icu3 = pd.merge(left_df, df_avgiculos.loc[:, ['hadmid', 'avg_iculos']], on='hadmid', how='left')
+    # df_icu2.groupby(['subjectid'])['avg_iculos'].mean() # overall LOS
+    return df_icu3
+
+
 if __name__ == "__main__":
-    # query = """SELECT subject_id, hadm_id FROM admissions LIMIT 10;"""
-    # # conn, cur = cursor_connect()
-    # conn, cur = cursor_connect(psycopg2.extras.DictCursor)  # access retrieved records as Python dict using keys
-    # cur.execute(query)
-    # rows = cur.fetchall()
-    # # print rows[0]['subject_id']
-    # for row in rows:
-    #     print row
+    df_icu_readm = feat_icustay()
+    df_icu_readm, df_main = feat_trav(df_icu_readm)
+    df_icu_readm = feat_iculos(df_icu_readm, df_main)

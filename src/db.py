@@ -61,18 +61,17 @@ def feat_icureadm():
     return df_icu
 
 
-def feat_trav():
+def trav_readm():
     """
-    Function extracts the count of traversals for all wards and only ICU wards for each patient's hospital admission as
-    features.
+    Function creates a DataFrame containing MIMIC-III TRANSFERS information for patients with multiple ICU readmissions.
 
-    :return: tuple of (merged pandas DataFrame, main pandas DataFrame)
+    :return: pandas DataFrame (patients with multiple ICU readmissions)
     """
     left_df = feat_icureadm()
 
     q_mult = """SELECT subject_id, hadm_id, icustay_id, eventtype,
-    prev_careunit, curr_careunit, prev_wardid, curr_wardid, intime, outtime, los
-    FROM transfers;"""
+        prev_careunit, curr_careunit, prev_wardid, curr_wardid, intime, outtime, los
+        FROM transfers;"""
     mult_trav = exec_query(q_mult, False)
     mult_col = ['subjectid', 'hadmid', 'icustayid', 'eventtype', 'prev_cu', 'curr_cu',
                 'prev_wardid', 'curr_wardid', 'intime', 'outtime', 'los']
@@ -81,13 +80,25 @@ def feat_trav():
 
     # filter for ICU patients with readmissions
     filter_preadm = list(left_df.subjectid)
-    df_mult_readm = df_mult[df_mult.subjectid.isin(filter_preadm)] # main DF
+    df_mult_readm = df_mult[df_mult.subjectid.isin(filter_preadm)]  # main DF
 
     # filter for exclusion of neonate patients
     df_mult_readm = df_mult_readm[df_mult_readm['prev_cu'] != 'NWARD']
     df_mult_readm = df_mult_readm[df_mult_readm['prev_cu'] != 'NICU']
     df_mult_readm = df_mult_readm[df_mult_readm['curr_cu'] != 'NWARD']
     df_mult_readm = df_mult_readm[df_mult_readm['curr_cu'] != 'NICU']
+    return df_mult_readm
+
+
+def feat_trav():
+    """
+    Function extracts the count of traversals for all wards and only ICU wards for each patient's hospital admission as
+    features.
+
+    :return: tuple of (merged pandas DataFrame, main pandas DataFrame)
+    """
+    left_df = feat_icureadm()
+    df_mult_readm = trav_readm()
 
     # extract feature: n_trav
     df_mult_readm_grp = df_mult_readm.groupby(['subjectid', 'hadmid']).size()
@@ -188,3 +199,5 @@ def feat_iculos():
 
 if __name__ == "__main__":
     pass
+    # print feat_iculos().shape
+    # print feat_iculos().describe()

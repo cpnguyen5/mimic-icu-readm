@@ -2,6 +2,7 @@ import psycopg2
 from psycopg2 import extras
 import numpy as np
 import pandas as pd
+from collections import Counter
 
 
 def cursor_connect(cursor_factory=None):
@@ -38,11 +39,11 @@ def exec_query(query, curs_dict=True):
     return rows
 
 
-def feat_icustay():
+def feat_icureadm():
     """
-    Function extracts the counts of icustays and ICU readmissions for each patient's hospital admission as features.
+    Function extracts the counts of ICU readmissions for each patient as features.
 
-    :return: pandas DataFrame with 2 extracted features (n_icustays, n_readm)
+    :return: pandas DataFrame
     """
     # query
     q_icupat = """SELECT * FROM
@@ -52,11 +53,11 @@ def feat_icustay():
     WHERE n_icustays > 1;"""
 
     # Query output
-    icu_stay = exec_query(q_icupat, False)
-    df_icustay = pd.DataFrame(icu_stay, columns=['subjectid', 'n_icustays'])
+    icupat = exec_query(q_icupat, False)
+    df_icupat = pd.DataFrame(icupat, columns=['subjectid', 'n_icustays'])
 
-    n_readm = pd.Series(df_icustay.n_icustays - 1, name='n_readm')
-    df_icu = pd.concat([df_icustay, n_readm], axis=1)
+    n_readm = pd.Series(df_icupat.n_icustays - 1, name='n_readm')
+    df_icu = pd.concat([df_icupat.subjectid, n_readm], axis=1)
     return df_icu
 
 
@@ -67,7 +68,7 @@ def feat_trav():
 
     :return: tuple of (merged pandas DataFrame, main pandas DataFrame)
     """
-    left_df = feat_icustay()
+    left_df = feat_icureadm()
 
     q_mult = """SELECT subject_id, hadm_id, icustay_id, eventtype,
     prev_careunit, curr_careunit, prev_wardid, curr_wardid, intime, outtime, los
@@ -106,6 +107,66 @@ def feat_trav():
     return (df_icu2, df_mult_readm_icu)
 
 
+def feat_icustay():
+    """
+    Function extracts the count of unique ICU stays for each patient's hospital admission as features.
+    :return: pandas DataFrame
+    """
+    left_df = feat_trav()[0]
+
+    # query
+    q_icustay = """SELECT subject_id, hadm_id, COUNT(DISTINCT icustay_id)
+    FROM transfers
+    GROUP BY subject_id, hadm_id;
+    """
+
+    # Query output
+    icustay = exec_query(q_icustay, False)
+    df_icustay = pd.DataFrame(icustay, columns=['subjectid', 'hadmid',
+                                                'n_icustays'])
+
+    # join DF  on subjectid to add n_readm col
+    df_icu3 = pd.merge(left_df, df_icustay.loc[:, ['hadmid', 'n_icustays']],
+                       on='hadmid', how='inner')
+    return df_icu3
+
+
+def feat_transpairs():
+    """
+
+    :return:
+    """
+    left_df = feat_icustay()
+    main_df = feat_trav()[1]
+
+    # Identify transfer pairs
+    df_trav_copy = main_df.copy() # copy
+    df_trav_copy.prev_cu.fillna('nonicu', inplace=True)
+    df_trav_copy.curr_cu.fillna('nonicu', inplace=True)
+    df_trav_copy['trans'] = df_trav_copy.prev_cu + '-' + df_trav_copy.curr_cu # transfer pairs
+
+    df_toppairs = df_trav_copy.trans.value_counts(ascending=False).to_frame() # count of pairs
+    df_top = df_toppairs.transpose().iloc[:, 0:11]  # transpose to columns
+
+    # Pair counter
+    sid = list(df_trav_copy.subjectid.value_counts().index) # unique subject_id
+
+    main_d = dict()
+    for subj in sid:
+        pair_d = dict(Counter(df_trav_copy[df_trav_copy.subjectid==subj].trans))
+        pair_d['subjectid'] = subj # add subjectid key
+        main_d[subj] = pair_d
+
+    df_pairct = pd.DataFrame.from_dict(main_d, orient='index')
+
+    # drop non-top trans pair cols
+    pairs_drop = list(df_toppairs.iloc[10:].index)
+    df_pairct.drop(pairs_drop, axis=1, inplace=True)
+
+    df_icu4 = pd.merge(left_df, df_pairct, on='subjectid', how='left')
+    return df_icu4
+
+
 def feat_iculos():
     """
     Function extracts the average length of stay for each patient's ICU stay as a feature, extracting the information
@@ -113,16 +174,17 @@ def feat_iculos():
 
     :return: merged pandas DataFrame
     """
-    left_df, main_df = feat_trav()
+    left_df = feat_transpairs()
+    main_df = feat_trav()[1]
 
     avgiculos = main_df.groupby(['subjectid', 'hadmid'])['los'].mean()
     df_avgiculos = avgiculos.to_frame(name='avg_iculos').reset_index()
 
     # Merge
-    df_icu3 = pd.merge(left_df, df_avgiculos.loc[:, ['hadmid', 'avg_iculos']], on='hadmid', how='left')
-    # df_icu2.groupby(['subjectid'])['avg_iculos'].mean() # overall LOS
-    return df_icu3
+    df_icu_final = pd.merge(left_df, df_avgiculos.loc[:, ['hadmid', 'avg_iculos']], on='hadmid', how='left')
+    # df_icu5.groupby(['subjectid'])['avg_iculos'].mean() # overall LOS
+    return df_icu_final
 
 
 if __name__ == "__main__":
-    print feat_iculos()
+    pass

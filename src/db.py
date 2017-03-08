@@ -142,10 +142,46 @@ def feat_icustay():
     return df_icu3
 
 
+def pair_trans(df_pair):
+    """
+    Function takes a DataFrame and transforms the ICU ward traversal pairs by multiplying their count/frequency by that
+    combination's overall probability (apply weight).
+
+    :param df_pair: DataFrame containing ICU ward pairs as features
+    :return: DataFrame (transformed probabiltiy pair features)
+    """
+    # Pair Probability
+    df_mult_readm_icu = feat_trav()[1]
+    df_mult_readm_icu.prev_cu.fillna('nonicu', inplace=True)
+    df_mult_readm_icu.curr_cu.fillna('nonicu', inplace=True)
+
+    pair_prob = pd.crosstab(df_mult_readm_icu.prev_cu,
+                            df_mult_readm_icu.curr_cu) / pd.crosstab(df_mult_readm_icu.prev_cu,
+                                                                     df_mult_readm_icu.curr_cu).sum()
+
+    # Create Pair Probability DataFrame
+    df_pairprob = pair_prob.unstack().to_frame(name='prob').reset_index()
+    df_pairprob['trans'] = df_pairprob.prev_cu + '-' + df_pairprob.curr_cu
+    df_pairprob.drop(['curr_cu', 'prev_cu'], axis=1, inplace=True)
+    df_pairprob.set_index('trans', drop=True, inplace=True)
+
+    # Transform Transfer Pair Features using Probability
+    pairs = ['nonicu-MICU', 'nonicu-SICU', 'nonicu-TSICU', 'nonicu-CSRU',
+             'MICU-MICU', 'TSICU-TSICU', 'nonicu-CCU', 'CCU-CCU', 'CSRU-CSRU',
+             'SICU-SICU']
+
+    for elem in pairs:
+        df_pair[elem].fillna(0, inplace=True)
+        df_pair[elem] = np.round(df_pair[elem] * df_pairprob.loc[elem].values[0], 3)
+    return df_pair
+
+
 def feat_transpairs():
     """
+    Function extract the top 10 ICU ward traversal pairs as features. More specifically, the pair combination's overall
+    probability is applied as weight onto the count.
 
-    :return:
+    :return: DataFrame
     """
     left_df = feat_icustay()
     main_df = feat_trav()[1]
@@ -157,7 +193,7 @@ def feat_transpairs():
     df_trav_copy['trans'] = df_trav_copy.prev_cu + '-' + df_trav_copy.curr_cu # transfer pairs
 
     df_toppairs = df_trav_copy.trans.value_counts(ascending=False).to_frame() # count of pairs
-    df_top = df_toppairs.transpose().iloc[:, 0:11]  # transpose to columns
+    # df_top = df_toppairs.transpose().iloc[:, 0:11]  # transpose to columns
 
     # Pair counter
     sid = list(df_trav_copy.subjectid.value_counts().index) # unique subject_id
@@ -175,7 +211,8 @@ def feat_transpairs():
     df_pairct.drop(pairs_drop, axis=1, inplace=True)
 
     df_icu4 = pd.merge(left_df, df_pairct, on='subjectid', how='left')
-    return df_icu4
+    df_pairprob = pair_trans(df_icu4)
+    return df_pairprob
 
 
 def feat_iculos():

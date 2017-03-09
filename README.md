@@ -26,8 +26,19 @@ the VM database:
 For more information or installation of the VM locally, please visit the project repo: [MIMIC-III VM]  
 [MIMIC-III VM]: https://github.com/nsh87/mimic-iii-vm
 
-### Project Structure
-#### IPython dir
+## Project Structure
+### IPython dir
 The IPython directory contains drafts of efforts of feature engineering to arrive at a composite dataset
 for predictive modeling.
 
+### src dir
+The `src` directory is the main project's files. It contains Python files (`.py`) related to the
+design of the predictive model.
+
+####  `db.py`
+The `db.py` file's primary purpose is to output a composite DataFrame to be used for predictve modeling.  
+It encompasses database connections, query execution, and feature engineering.
+
+#### `clf.py`
+The main purpose of the `clf.py` file is to run the predictive model and generate a fitted model and its corresponding
+results (e.g. metrics, visualizations).

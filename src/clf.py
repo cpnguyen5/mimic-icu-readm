@@ -179,6 +179,21 @@ def r2(model_pred, target):
     return metrics.r2_score(y_true, y_pred)
 
 
+# def plot_reg(X_test, y_test, y_pred):
+#     """
+#     Plot regression.
+#
+#     :param X_test: Testing set features
+#     :param y_test: Testing set labels
+#     :param y_pred: model's predictions
+#     :return: plot
+#     """
+#     plt.scatter(X_test, y_test, color='black')
+#     plt.plot(X_test, y_pred, color='blue', linewidth=3)
+#     plt.show()
+#     plt.close()
+
+
 #main
 if __name__ == '__main__':
     np.random.seed(2)
@@ -187,7 +202,7 @@ if __name__ == '__main__':
     data = readDataFrame()
 
     # Data Partition
-    X_train, X_test, y_train, y_test = data_partition(data.iloc[:100])
+    X_train, X_test, y_train, y_test = data_partition(data.iloc[:500])
 
     # Data Normalization
     scaled_X_train, scaled_X_test = scale(X_train, X_test)
@@ -201,16 +216,14 @@ if __name__ == '__main__':
     #     print feat_names[i], "\n \t", "score: ", score[i], "\n \t", "p-value: ", pval[i]
     # print
 
-    # Classification
+    # Model
     # clf_model, y_pred, best_p, best_score = gridsearch(X_train, X_test, y_train)
     # print "Best Parameters: ", best_p
     # print "Best Grid Search Score: ", best_score
     # print "Best Estimator: ", clf_model, "\n"
-    clf_model, y_pred = clf(X_train, X_test, y_train) #alternative clf function [no grid search]
+    clf_model, y_pred = clf(scaled_X_train, scaled_X_test, y_train) #alternative clf function [no grid search]
 
     print "RMSE: ", np.around(RMSE(y_pred, y_test), 5)
     print "Mean Absolute Error: ", np.around(MAE(y_pred, y_test), 5)
     print "R2: ", np.around(r2(y_pred, y_test), 5)
-
-
 

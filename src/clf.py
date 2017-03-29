@@ -121,7 +121,7 @@ def gridsearch(X_train, X_test, y_train):
     return (best_est, clf_pred, best_params, score)
 
 
-def clf(X_train, X_test, y_train):
+def regression_model(X_train, X_test, y_train):
     """
     Function instantiates the classifier model with parameters, fits the model to the Training set, and applies it to
     the Testing set for classification predictions.
@@ -192,6 +192,133 @@ def r2(model_pred, target):
 #     plt.plot(X_test, y_pred, color='blue', linewidth=3)
 #     plt.show()
 #     plt.close()
+
+
+## classification metrics
+def sensitivity(model_pred, target):
+    """
+    Function calculates the sensitivity value of the classification, given the model's prediction and true labels.
+    :param model_pred: model's classification prediction
+    :param target: labels (y_test)
+    :return: sensitivity value
+    """
+    y_pred = model_pred # prediction
+    y_true = target # true labels
+    #Confusion Matrix
+    cm = metrics.confusion_matrix(y_true, y_pred)
+    TN = float(cm[0,0]) #True Negative
+    FP = float(cm[0,1]) #False Positive
+    FN = float(cm[1,0]) #False Negative
+    TP = float(cm[1,1]) #True Positive
+
+    #sensitivity calculation
+    final_sensitivity = TP/(TP + FN)
+    return final_sensitivity
+
+
+def specificity(model_pred, target):
+    """
+    Function calculates the specificity value of the classification, given the model's prediction and true labels.
+    :param model_pred: model's classification prediction
+    :param target: labels (y_test)
+    :return: specificity value
+    """
+    y_pred = model_pred #prediction
+    y_true = target #true labels
+    #Confusion Matrix
+    cm = metrics.confusion_matrix(y_true, y_pred)
+    TN = float(cm[0,0]) #True Negative
+    FP = float(cm[0,1]) #False Positive
+    FN = float(cm[1,0]) #False Negative
+    TP = float(cm[1,1]) #True Positive
+
+    #specificity calculation
+    N = FP + TN
+    TNR = TN/N
+    return TNR
+
+
+def accuracy(model_pred, target):
+    """
+    Function calculates the accuracy value of the classification, given the model's prediction and true labels.
+    :param model_pred: model's classification prediction
+    :param target: labels (y_test)
+    :return: accuracy value
+    """
+    accuracy = metrics.accuracy_score(target, model_pred)
+    return accuracy
+
+
+def f_score(model_pred, target):
+    """
+    Function calculates the F1-score value of the classification, given the model's prediction and true labels. F1-score
+    is the weighted average of precision & recall with a range of [0, 1].
+    :param model_pred: model's classification prediction
+    :param target: labels (y_test)
+    :return: F1-score value
+    """
+    y_pred = model_pred #prediction
+    y_true = target #true labels
+    f1 = metrics.f1_score(y_true, y_pred)
+    return f1
+
+
+def precision(model_pred, target):
+    """
+    Function calculates the precision value of the classification, given the model's prediction and true labels.
+    :param model_pred: model's classification prediction
+    :param target: labels (y_test)
+    :return: precision value
+    """
+    y_pred = model_pred #prediction
+    y_true = target #true labels
+    precision_score = metrics.precision_score(y_true, y_pred)
+    return precision_score
+
+
+def recall(model_pred, target):
+    """
+    Function calculates the recall value of the classification, given the model's prediction and true labels.
+    :param model_pred: model's classification prediction
+    :param target: labels (y_test)
+    :return: recall value
+    """
+    y_pred = model_pred #prediction
+    y_true = target #true labels
+    recall_score = metrics.recall_score(y_true, y_pred)
+    return recall_score
+
+
+def df_auc(model, X_test, target):
+    """
+    Function calculates the area under the (ROC) curve based on the decision function (y_score).
+    :param model: fitted classifier model
+    :param X_test: Testing set features
+    :param target: labels (y_test)
+    :return: AUC score
+    """
+    y_true = target
+    y_score = model.decision_function(X_test) #Predict confidence scores
+    fpr, tpr, thresholds = metrics.roc_curve(y_true, y_score) #calculate FPR & TPR
+    auc_score = metrics.auc(fpr, tpr) #calculate AUC
+    return auc_score
+
+
+def pp_auc(model, X_test, target):
+    """
+    Function calculates the area under the (ROC) curve based on the predicted probability (y_score).
+    :param model: fitted classifier model
+    :param X_test: Testing set features
+    :param target: labels (y_test)
+    :return: AUC score
+    """
+    y_true = target
+    y_score = model.predict_proba(X_test) #Predict probability estimate
+    fpr, tpr, thresholds = metrics.roc_curve(y_true, y_score[:,1]) #calculate FPR & TPR
+    auc_score = metrics.auc(fpr, tpr) #calculate AUC
+    return auc_score
+
+
 
 
 #main
